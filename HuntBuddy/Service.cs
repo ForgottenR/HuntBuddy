@@ -1,4 +1,4 @@
-﻿using Dalamud.IoC;
+using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 
@@ -67,6 +67,12 @@ public class Service {
 
 	[PluginService]
 	public static ICondition Condition {
+		get;
+		set;
+	} = null!;
+
+	[PluginService]
+	public static IPlayerState PlayerState {
 		get;
 		set;
 	} = null!;

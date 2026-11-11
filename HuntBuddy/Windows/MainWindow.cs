@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
@@ -22,7 +22,7 @@ public class MainWindow: Window {
 		$"{Plugin.Instance.Name}",
 		ImGuiWindowFlags.NoDocking,
 		true) {
-		this.Size = new Vector2(400 * ImGui.GetIO().FontGlobalScale, 500);
+		this.Size = new Vector2(800 * ImGui.GetIO().FontGlobalScale, 500);
 		this.SizeCondition = ImGuiCond.FirstUseEver;
 		this.RespectCloseHotkey = !Plugin.Instance.Configuration.IgnoreCloseHotkey;
 	}
@@ -96,9 +96,10 @@ public class MainWindow: Window {
 					return treeOpen;
 				});
 			foreach (KeyValuePair<KeyValuePair<uint, string>, List<MobHuntEntry>> entry in mobEntriesWithTreeNodes) {
-				foreach (MobHuntEntry? mobHuntEntry in entry.Value) {
+				foreach (IGrouping<uint, MobHuntEntry> mobGroup in entry.Value.GroupBy(mobHuntEntry => mobHuntEntry.MobHuntId)) {
+					foreach (MobHuntEntry? mobHuntEntry in mobGroup) {
 					if (Location.Database.ContainsKey(mobHuntEntry.MobHuntId)) {
-						if (InterfaceUtil.IconButton(FontAwesomeIcon.MapMarkerAlt, $"pin##{mobHuntEntry.MobHuntId}")) {
+						if (InterfaceUtil.IconButton(FontAwesomeIcon.MapMarkerAlt, $"pin##{mobHuntEntry.MobHuntId}_{mobHuntEntry.BillNumber}_{mobHuntEntry.MobIndex}")) {
 							Location.CreateMapMarker(
 								mobHuntEntry.TerritoryType,
 								mobHuntEntry.MapId,
@@ -115,7 +116,7 @@ public class MainWindow: Window {
 
 						ImGui.SameLine();
 
-						if (InterfaceUtil.IconButton(FontAwesomeIcon.MapMarkedAlt, $"open##{mobHuntEntry.MobHuntId}")) {
+						if (InterfaceUtil.IconButton(FontAwesomeIcon.MapMarkedAlt, $"open##{mobHuntEntry.MobHuntId}_{mobHuntEntry.BillNumber}_{mobHuntEntry.MobIndex}")) {
 							bool includeArea = Plugin.Instance.Configuration.IncludeAreaOnMap;
 							if (ImGui.IsKeyDown(ImGuiKey.ModShift)) {
 								includeArea = !includeArea;
@@ -153,7 +154,7 @@ public class MainWindow: Window {
 						ImGui.SameLine();
 
 						if (Plugin.TeleportConsumer?.IsAvailable == true) {
-							if (InterfaceUtil.IconButton(FontAwesomeIcon.StreetView, $"teleport##{mobHuntEntry.MobHuntId}")) {
+							if (InterfaceUtil.IconButton(FontAwesomeIcon.StreetView, $"teleport##{mobHuntEntry.MobHuntId}_{mobHuntEntry.BillNumber}_{mobHuntEntry.MobIndex}")) {
 								Location.TeleportToNearestAetheryte(
 									mobHuntEntry.TerritoryType,
 									mobHuntEntry.MapId,
@@ -170,7 +171,7 @@ public class MainWindow: Window {
 						}
 
 						if (Plugin.Instance.Configuration.EnableXivEspIntegration && Plugin.EspConsumer?.IsAvailable == true) {
-							if (InterfaceUtil.IconButton(FontAwesomeIcon.Search, $"esp##{mobHuntEntry.MobHuntId}")) {
+							if (InterfaceUtil.IconButton(FontAwesomeIcon.Search, $"esp##{mobHuntEntry.MobHuntId}_{mobHuntEntry.BillNumber}_{mobHuntEntry.MobIndex}")) {
 								Plugin.EspConsumer.SearchFor(mobHuntEntry.Name!);
 							}
 
@@ -185,7 +186,7 @@ public class MainWindow: Window {
 					}
 
 					int currentKills = MobHunt.Instance()->GetKillCount(mobHuntEntry.BillNumber, mobHuntEntry.MobIndex);
-					ImGui.Text(mobHuntEntry.Name);
+					ImGui.Text($"{InterfaceUtil.GetBillLabel(mobHuntEntry)} {mobHuntEntry.Name}");
 					if (ImGui.IsItemHovered()) {
 						ImGui.PushStyleColor(ImGuiCol.PopupBg, Vector4.Zero);
 						ImGui.BeginTooltip();
@@ -203,9 +204,13 @@ public class MainWindow: Window {
 							new Vector4(0f, 1f, 0f, 1f),
 							$"({currentKills}/{mobHuntEntry.NeededKills})");
 					}
+					ImGui.SameLine();
+					InterfaceUtil.DrawHuntReward(mobHuntEntry);
 				}
+				InterfaceUtil.DrawHuntRecommendation(mobGroup);
+			}
 
-				ImGui.TreePop();
+			ImGui.TreePop();
 			}
 
 			ImGui.TreePop();

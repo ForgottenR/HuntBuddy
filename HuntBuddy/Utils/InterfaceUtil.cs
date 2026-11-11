@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
 
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
@@ -38,6 +40,88 @@ public static class InterfaceUtil {
 		}
 
 		drawList.AddImage(LoadIcon(mobHuntEntry.Icon).Handle, cursorPos, cursorPos + imageSize);
+	}
+
+	public static string GetBillLabel(MobHuntEntry mobHuntEntry) {
+		return (BillEnum)mobHuntEntry.BillNumber switch {
+			BillEnum.ArrRank1 => "2.0 初级",
+			BillEnum.HwRank1 => "3.0 初级",
+			BillEnum.HwRank2 => "3.0 中级",
+			BillEnum.HwRank3 => "3.0 高级",
+			BillEnum.SbRank1 => "4.0 初级",
+			BillEnum.SbRank2 => "4.0 中级",
+			BillEnum.SbRank3 => "4.0 高级",
+			BillEnum.ShbRank1 => "5.0 初级",
+			BillEnum.ShbRank2 => "5.0 中级",
+			BillEnum.ShbRank3 => "5.0 高级",
+			BillEnum.EwRank1 => "6.0 初级",
+			BillEnum.EwRank2 => "6.0 中级",
+			BillEnum.EwRank3 => "6.0 高级",
+			BillEnum.DtRank1 => "7.0 初级",
+			BillEnum.DtRank2 => "7.0 中级",
+			BillEnum.DtRank3 => "7.0 高级",
+			BillEnum.ArrElite => "2.0 精英",
+			BillEnum.HwElite => "3.0 精英",
+			BillEnum.SbElite => "4.0 精英",
+			BillEnum.ShbElite => "5.0 精英",
+			BillEnum.EwElite => "6.0 精英",
+			BillEnum.DtElite => "7.0 精英",
+			_ => "未知狩猎令",
+		};
+	}
+
+	public static void DrawHuntReward(MobHuntEntry mobHuntEntry) {
+		if (mobHuntEntry.ExpReward == 0) {
+			ImGui.Text("无经验奖励");
+			return;
+		}
+
+		HuntRecommendation recommendation = Plugin.Instance.RecommendationService.Get(mobHuntEntry.ExpReward);
+		ImGui.Text(recommendation.ThresholdLevel is uint thresholdLevel
+			? $"{mobHuntEntry.ExpReward:N0} EXP · ≤{thresholdLevel}级"
+			: "无法确定经验截止等级");
+	}
+
+	public static void DrawHuntRecommendation(IEnumerable<MobHuntEntry> mobHuntEntries) {
+		List<MobHuntEntry> entries = mobHuntEntries.ToList();
+		uint expReward = entries.Where(entry => entry.ExpReward > 0).Select(entry => entry.ExpReward).DefaultIfEmpty(0u).Min();
+		HuntRecommendation recommendation = Plugin.Instance.RecommendationService.Get(expReward);
+		string text = FormatRecommendation(recommendation, entries.Count > 1);
+		if (recommendation.IsAbnormal) {
+			ImGui.TextColored(new Vector4(1f, 0.65f, 0.2f, 1f), text);
+		}
+		else {
+			ImGui.Text(text);
+		}
+	}
+
+	private static string FormatRecommendation(HuntRecommendation recommendation, bool useMinimum) {
+		string prefix = useMinimum ? "多令取最低 · " : "";
+		if (recommendation.SelectedJob == null) {
+			return prefix + (recommendation.Kind switch {
+				HuntRecommendationKind.NotApplicable => "无经验推荐",
+				HuntRecommendationKind.DataUnavailable => "狩猎经验数据不可用",
+				HuntRecommendationKind.NoValidThreshold => "无法确定经验截止等级",
+				HuntRecommendationKind.PlayerDataMissing => "职业数据不可用",
+				HuntRecommendationKind.NoJobs => "无可推荐职业",
+				HuntRecommendationKind.AllJobsMaxLevel => "全部战斗职业已满级",
+				_ => "无推荐",
+			});
+		}
+
+		HuntJobLevel selectedJob = recommendation.SelectedJob!;
+		string jobName = selectedJob.Job.Name.ToString();
+		return prefix + (recommendation.Kind switch {
+			HuntRecommendationKind.DpsNormal =>
+				$"≤{recommendation.ThresholdLevel}级 · 推荐{jobName} {selectedJob.Level}级",
+			HuntRecommendationKind.DpsAboveThreshold =>
+				$"异常：无≤{recommendation.ThresholdLevel}级 DPS；推荐{jobName} {selectedJob.Level}级（最低级 DPS 兜底）",
+			HuntRecommendationKind.TankHealerNormal =>
+				$"异常：DPS 均已满级；推荐{jobName} {selectedJob.Level}级（T/奶）",
+			HuntRecommendationKind.TankHealerAboveThreshold =>
+				$"异常：DPS 已满级且无≤{recommendation.ThresholdLevel}级 T/奶；推荐{jobName} {selectedJob.Level}级（T/奶兜底）",
+			_ => "无推荐",
+		});
 	}
 
 	/// <summary>

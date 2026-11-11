@@ -1,4 +1,4 @@
-﻿namespace HuntBuddy;
+namespace HuntBuddy;
 
 public class MobHuntEntry {
 	public string? Name { get; init; }
@@ -22,6 +22,8 @@ public class MobHuntEntry {
 	public byte MobIndex { get; set; }
 
 	public uint NeededKills { get; set; }
+
+	public uint ExpReward { get; init; }
 
 	public uint Icon { get; init; }
 }

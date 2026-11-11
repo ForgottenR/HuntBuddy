@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
@@ -37,6 +37,7 @@ public class Plugin: IDalamudPlugin {
 	public readonly ConcurrentBag<MobHuntEntry> CurrentAreaMobHuntEntries;
 	public bool MobHuntEntriesReady = true;
 	public readonly Configuration Configuration;
+	public readonly HuntRecommendationService RecommendationService;
 	public static TeleportConsumer? TeleportConsumer { get; private set; }
 	public static EspConsumer? EspConsumer { get; private set; }
 
@@ -68,6 +69,7 @@ public class Plugin: IDalamudPlugin {
 		this.Configuration = (Configuration)(Service.PluginInterface.GetPluginConfig() ?? new Configuration());
 		this.Configuration.IconBackgroundColourU32 =
 			ImGui.ColorConvertFloat4ToU32(this.Configuration.IconBackgroundColour);
+		this.RecommendationService = new HuntRecommendationService();
 
 		this.MainWindow = new MainWindow();
 		this.ConfigurationWindow = new ConfigurationWindow();
@@ -87,6 +89,7 @@ public class Plugin: IDalamudPlugin {
 	}
 
 	private unsafe void FrameworkOnUpdate(IFramework framework) {
+		this.RecommendationService.Refresh();
 		if (this.lastState == MobHunt.Instance()->ObtainedFlags) {
 			return;
 		}
@@ -266,34 +269,25 @@ public class Plugin: IDalamudPlugin {
 			IEnumerable<MobHuntOrder> mobHuntOrderRows = mobHuntOrderSheet[rowId];
 
 			foreach (MobHuntOrder mobHuntOrderRow in mobHuntOrderRows) {
-				MobHuntEntry? mobHuntEntry =
-					mobHuntList.FirstOrDefault(x => x.MobHuntId == mobHuntOrderRow.Target.Value.Name.RowId);
-
-				if (mobHuntEntry == null) {
-					mobHuntList.Add(
-						new MobHuntEntry {
-							Name = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
-								mobHuntOrderRow.Target.Value.Name.Value.Singular.ToString()),
-							TerritoryName = mobHuntOrderRow.Target.Value.Map.Value.PlaceName.Value.Name.ToString(),
-							ExpansionName = mobHuntOrderRow.Target.Value.Map.Value.TerritoryType.Value
-								.ExVersion.Value.Name.ToString(),
-							ExpansionId = mobHuntOrderRow.Target.Value.Map.Value.TerritoryType.Value
-								.ExVersion.RowId,
-							MapId = mobHuntOrderRow.Target.Value.Map.RowId,
-							TerritoryType = mobHuntOrderRow.Target.Value.Map.Value.TerritoryType.RowId,
-							MobHuntId = mobHuntOrderRow.Target.Value.Name.RowId,
-							IsEliteMark = mobHuntOrderTypeRow.Type == 2,
-							BillNumber = (byte)billNumber,
-							MobIndex = (byte)mobHuntOrderRow.SubrowId,
-							NeededKills = mobHuntOrderRow.NeededKills,
-							Icon = mobHuntOrderRow.Target.Value.Icon,
-						});
-				}
-				else {
-					if (mobHuntEntry.NeededKills < mobHuntOrderRow.NeededKills) {
-						mobHuntEntry.NeededKills = mobHuntOrderRow.NeededKills;
-					}
-				}
+				mobHuntList.Add(
+					new MobHuntEntry {
+						Name = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
+							mobHuntOrderRow.Target.Value.Name.Value.Singular.ToString()),
+						TerritoryName = mobHuntOrderRow.Target.Value.Map.Value.PlaceName.Value.Name.ToString(),
+						ExpansionName = mobHuntOrderRow.Target.Value.Map.Value.TerritoryType.Value
+							.ExVersion.Value.Name.ToString(),
+						ExpansionId = mobHuntOrderRow.Target.Value.Map.Value.TerritoryType.Value
+							.ExVersion.RowId,
+						MapId = mobHuntOrderRow.Target.Value.Map.RowId,
+						TerritoryType = mobHuntOrderRow.Target.Value.Map.Value.TerritoryType.RowId,
+						MobHuntId = mobHuntOrderRow.Target.Value.Name.RowId,
+						IsEliteMark = mobHuntOrderTypeRow.Type == 2,
+						BillNumber = (byte)billNumber,
+						MobIndex = (byte)mobHuntOrderRow.SubrowId,
+						NeededKills = mobHuntOrderRow.NeededKills,
+						ExpReward = mobHuntOrderRow.MobHuntReward.ValueNullable?.ExpReward ?? 0,
+						Icon = mobHuntOrderRow.Target.Value.Icon,
+					});
 			}
 		}
 

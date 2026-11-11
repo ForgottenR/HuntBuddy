@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Numerics;
 
 using Dalamud.Bindings.ImGui;
@@ -55,15 +55,20 @@ public class LocalHuntsWindow: Window {
 			.Count(x => MobHunt.Instance()->GetKillCount(x.BillNumber, x.MobIndex) == x.NeededKills) != Plugin.Instance.CurrentAreaMobHuntEntries.Count;
 
 	public override unsafe void Draw() {
-		foreach (MobHuntEntry? mobHuntEntry in Plugin.Instance.CurrentAreaMobHuntEntries) {
-			int currentKills = MobHunt.Instance()->GetKillCount(mobHuntEntry.BillNumber, mobHuntEntry.MobIndex);
+		foreach (IGrouping<uint, MobHuntEntry> mobGroup in Plugin.Instance.CurrentAreaMobHuntEntries.GroupBy(mobHuntEntry => mobHuntEntry.MobHuntId)) {
+			if (Plugin.Instance.Configuration.HideCompletedHunts && mobGroup.All(mobHuntEntry => MobHunt.Instance()->GetKillCount(mobHuntEntry.BillNumber, mobHuntEntry.MobIndex) == mobHuntEntry.NeededKills)) {
+				continue;
+			}
+
+			foreach (MobHuntEntry? mobHuntEntry in mobGroup) {
+				int currentKills = MobHunt.Instance()->GetKillCount(mobHuntEntry.BillNumber, mobHuntEntry.MobIndex);
 
 			if (Plugin.Instance.Configuration.HideCompletedHunts && currentKills == mobHuntEntry.NeededKills) {
 				continue;
 			}
 
 			if (Location.Database.ContainsKey(mobHuntEntry.MobHuntId)) {
-				if (InterfaceUtil.IconButton(FontAwesomeIcon.MapMarkerAlt, $"pin##{mobHuntEntry.MobHuntId}")) {
+				if (InterfaceUtil.IconButton(FontAwesomeIcon.MapMarkerAlt, $"pin##{mobHuntEntry.MobHuntId}_{mobHuntEntry.BillNumber}_{mobHuntEntry.MobIndex}")) {
 					Location.CreateMapMarker(
 						mobHuntEntry.TerritoryType,
 						mobHuntEntry.MapId,
@@ -80,7 +85,7 @@ public class LocalHuntsWindow: Window {
 
 				ImGui.SameLine();
 
-				if (InterfaceUtil.IconButton(FontAwesomeIcon.MapMarkedAlt, $"open##{mobHuntEntry.MobHuntId}")) {
+				if (InterfaceUtil.IconButton(FontAwesomeIcon.MapMarkedAlt, $"open##{mobHuntEntry.MobHuntId}_{mobHuntEntry.BillNumber}_{mobHuntEntry.MobIndex}")) {
 					bool includeArea = Plugin.Instance.Configuration.IncludeAreaOnMap;
 					if (ImGui.IsKeyDown(ImGuiKey.ModShift)) {
 						includeArea = !includeArea;
@@ -118,7 +123,7 @@ public class LocalHuntsWindow: Window {
 				if (Plugin.Instance.Configuration.EnableXivEspIntegration && Plugin.EspConsumer?.IsAvailable == true) {
 
 					ImGui.SameLine();
-					if (InterfaceUtil.IconButton(FontAwesomeIcon.Search, $"esp##{mobHuntEntry.MobHuntId}")) {
+					if (InterfaceUtil.IconButton(FontAwesomeIcon.Search, $"esp##{mobHuntEntry.MobHuntId}_{mobHuntEntry.BillNumber}_{mobHuntEntry.MobIndex}")) {
 						Plugin.EspConsumer.SearchFor(mobHuntEntry.Name!);
 					}
 
@@ -132,7 +137,9 @@ public class LocalHuntsWindow: Window {
 				ImGui.SameLine();
 			}
 
-			ImGui.Text($"{mobHuntEntry.Name} ({currentKills}/{mobHuntEntry.NeededKills})");
+			ImGui.Text($"{InterfaceUtil.GetBillLabel(mobHuntEntry)} {mobHuntEntry.Name} ({currentKills}/{mobHuntEntry.NeededKills})");
+			ImGui.SameLine();
+			InterfaceUtil.DrawHuntReward(mobHuntEntry);
 
 			if (!Plugin.Instance.Configuration.ShowLocalHuntIcons) {
 				continue;
@@ -140,5 +147,7 @@ public class LocalHuntsWindow: Window {
 
 			InterfaceUtil.DrawHuntIcon(mobHuntEntry);
 		}
+		InterfaceUtil.DrawHuntRecommendation(mobGroup);
 	}
+}
 }
